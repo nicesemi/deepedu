@@ -1,6 +1,7 @@
 """
 deepedu.school — Vercel Serverless API
 统一入口，Mangum 适配 FastAPI → Vercel
+集成 DeepTutor（Railway v1.5.2）作为核心推理引擎
 """
 
 import os
@@ -19,9 +20,11 @@ from mangum import Mangum
 # ── Config ──
 SILICONFLOW_KEY = os.environ.get("SILICONFLOW_API_KEY", "")
 SILICONFLOW_MODEL = os.environ.get("SILICONFLOW_MODEL", "Qwen/Qwen2.5-7B-Instruct")
-LOCAL_ENGINE_URL = os.environ.get("LOCAL_ENGINE_URL", "")  # ngrok URL of local Mac
+LOCAL_ENGINE_URL = os.environ.get("LOCAL_ENGINE_URL", "")
 SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+DEEPTUTOR_URL = os.environ.get("DEEPTUTOR_URL", "https://creative-upliftment-production-1ec0.up.railway.app")
+DEEPTUTOR_KB = os.environ.get("DEEPTUTOR_KB", "七年级数学")  # 默认知识库
 
 app = FastAPI(title="deepedu.school API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -302,6 +305,100 @@ def search(query: str = ""):
     q = query.lower()
     results = [n for n in KNOWLEDGE_NODES if q in n["title"].lower() or q in n["subject"].lower()]
     return {"query": query, "results": results, "total": len(results)}
+
+# ── DeepTutor Integration ──
+class DeepTutorProxy:
+    """Railway 部署的 DeepTutor v1.5.2 REST API 代理。
+    聊天功能走 WebSocket（由前端直连），REST 端点用于知识库/系统管理。"""
+
+    def __init__(self, base_url: str = DEEPTUTOR_URL, timeout: float = 15):
+        self.base = base_url.rstrip("/")
+        self.timeout = timeout
+
+    async def _get(self, path: str) -> dict | None:
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as c:
+                r = await c.get(f"{self.base}{path}")
+                if r.status_code == 200:
+                    return r.json()
+        except Exception:
+            pass
+        return None
+
+    async def status(self) -> dict:
+        result = await self._get("/api/v1/system/status")
+        if result:
+            return {"online": True, "version": "v1.5.2", **result}
+        return {"online": False, "error": "DeepTutor 不可达"}
+
+    async def knowledge_bases(self) -> dict:
+        result = await self._get("/api/v1/knowledge/list")
+        if result:
+            return {"kbs": result, "count": len(result) if isinstance(result, list) else 1}
+        return {"kbs": [], "count": 0}
+
+    async def kb_detail(self, kb_name: str = DEEPTUTOR_KB) -> dict:
+        kbs = await self._get("/api/v1/knowledge/list")
+        if not kbs:
+            return {"found": False}
+        for kb in (kbs if isinstance(kbs, list) else [kbs]):
+            if kb.get("name") == kb_name:
+                stats = kb.get("statistics", {})
+                return {
+                    "found": True,
+                    "name": kb_name,
+                    "documents": stats.get("raw_documents", 0),
+                    "chunks": stats.get("index_versions", [{}])[0].get("doc_count", 0),
+                    "engine": stats.get("rag_provider", "llamaindex"),
+                    "dimension": stats.get("index_versions", [{}])[0].get("dimension", 2560),
+                    "model": stats.get("index_versions", [{}])[0].get("model", ""),
+                    "ready": stats.get("status") == "ready",
+                }
+        return {"found": False, "name": kb_name}
+
+    async def sessions(self, limit: int = 20) -> dict:
+        result = await self._get(f"/api/v1/sessions?limit={limit}&offset=0")
+        return result or {"sessions": []}
+
+    async def settings(self) -> dict:
+        return await self._get("/api/v1/settings") or {}
+
+dt = DeepTutorProxy()
+
+
+# ── DeepTutor Routes ──
+@app.get("/api/deeptutor/status")
+async def deeptutor_status():
+    """检查 DeepTutor 在线状态"""
+    return await dt.status()
+
+@app.get("/api/deeptutor/knowledge")
+async def deeptutor_knowledge():
+    """列出 DeepTutor 知识库"""
+    return await dt.knowledge_bases()
+
+@app.get("/api/deeptutor/knowledge/{kb_name}")
+async def deeptutor_kb_detail(kb_name: str = DEEPTUTOR_KB):
+    """获取知识库详情（索引状态、文档数、chunk数）"""
+    return await dt.kb_detail(kb_name)
+
+@app.get("/api/deeptutor/sessions")
+async def deeptutor_sessions(limit: int = 20):
+    """列出 DeepTutor 会话"""
+    return await dt.sessions(limit)
+
+@app.get("/api/deeptutor/config")
+async def deeptutor_config():
+    """获取 DeepTutor WebSocket 连接配置（供前端使用）"""
+    status = await dt.status()
+    kb = await dt.kb_detail(DEEPTUTOR_KB)
+    return {
+        "ws_url": f"{DEEPTUTOR_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/api/v1/ws",
+        "rest_base": DEEPTUTOR_URL,
+        "status": status,
+        "knowledge_base": kb,
+    }
+
 
 # ── Vercel handler ──
 handler = Mangum(app)

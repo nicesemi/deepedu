@@ -44,7 +44,10 @@ main{flex:1;display:flex;flex-direction:column;padding:0 40px;overflow:hidden}
 
 <header>
   <h1>deepedu.school TV</h1>
-  <span class="badge" id="statusBadge">遥控器就绪</span>
+  <div style="display:flex;gap:12px;align-items:center">
+    <span class="badge" id="dtBadge" style="display:none;background:#065f46;color:#34d399">DeepTutor AI</span>
+    <span class="badge" id="statusBadge">遥控器就绪</span>
+  </div>
 </header>
 
 <main>
@@ -81,9 +84,110 @@ main{flex:1;display:flex;flex-direction:column;padding:0 40px;overflow:hidden}
 
 <script>
 const API = 'https://deependu.school/api';
+const DT_WS = 'wss://creative-upliftment-production-1ec0.up.railway.app/api/v1/ws';
+const DT_KB = '七年级数学';
+
 let skill = 'math';
 let history = [];
+let ws = null;
+let dtOnline = false;
+let currentStreamMsg = null;  // 当前正在流式输出的消息 DOM
 
+// ── DeepTutor WebSocket ──
+async function connectDT() {
+  if (ws && ws.readyState === WebSocket.OPEN) return true;
+  try {
+    ws = new WebSocket(DT_WS);
+    return new Promise((resolve) => {
+      ws.onopen = () => {
+        dtOnline = true;
+        document.getElementById('dtBadge').style.display = 'inline';
+        document.getElementById('statusBadge').textContent = 'DeepTutor 就绪';
+        resolve(true);
+      };
+      ws.onerror = () => { dtOnline = false; resolve(false); };
+      ws.onclose = () => {
+        dtOnline = false;
+        document.getElementById('dtBadge').style.display = 'none';
+        ws = null;
+      };
+      ws.onmessage = handleDTMessage;
+      setTimeout(() => { if (ws.readyState !== WebSocket.OPEN) { dtOnline = false; resolve(false); } }, 5000);
+    });
+  } catch(e) { dtOnline = false; return false; }
+}
+
+function handleDTMessage(e) {
+  try {
+    const evt = JSON.parse(e.data);
+    const type = evt.type || evt.event_type || '';
+
+    if (type === 'session') {
+      document.getElementById('statusBadge').textContent = 'DeepTutor 生成中...';
+    }
+    else if (type === 'text_delta' || type === 'token') {
+      if (currentStreamMsg && evt.text) {
+        currentStreamMsg.innerHTML += evt.text.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+          .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+        const container = document.getElementById('messages');
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+    else if (type === 'content') {
+      if (currentStreamMsg && evt.content) {
+        currentStreamMsg.innerHTML = evt.content
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+          .replace(/^## (.+)/gm,'<h2>$1</h2>')
+          .replace(/^### (.+)/gm,'<h3>$1</h3>')
+          .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+          .replace(/\n/g,'<br>');
+      }
+    }
+    else if (type === 'done') {
+      document.getElementById('statusBadge').textContent = 'DeepTutor 就绪';
+      currentStreamMsg = null;
+    }
+    else if (type === 'error') {
+      if (currentStreamMsg) {
+        currentStreamMsg.innerHTML += '<br><br><em>生成中断，请重试</em>';
+        currentStreamMsg = null;
+      }
+      document.getElementById('statusBadge').textContent = 'Error';
+    }
+  } catch(e) {}
+}
+
+async function sendViaDT(msg) {
+  const connected = await connectDT();
+  if (!connected) return false;
+
+  const msgDiv = addStreamMsg();
+  currentStreamMsg = msgDiv;
+
+  ws.send(JSON.stringify({
+    type: 'start_turn',
+    content: msg,
+    session_id: '',
+    capability: 'chat',
+    knowledge_bases: skill === 'math' ? [DT_KB] : [],
+    tools: ['web_search', 'reason', 'geogebra_analysis'],
+    language: 'zh',
+    preferences: { language: 'zh' }
+  }));
+  return true;
+}
+
+function addStreamMsg() {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.innerHTML = '<div class="av">DT</div><div class="bub"></div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div.querySelector('.bub');
+}
+
+// ── UI Interaction ──
 document.querySelectorAll('.skill-tag').forEach(t => {
   t.addEventListener('click', () => switchSkill(t));
   t.addEventListener('keydown', e => {
@@ -108,6 +212,16 @@ async function send() {
   input.value = '';
   addMsg('user', msg);
 
+  // 数学题优先走 DeepTutor（WebSocket 流式）
+  if (skill === 'math') {
+    const sent = await sendViaDT(msg);
+    if (sent) {
+      history.push({role:'user',content:msg});
+      return;
+    }
+  }
+
+  // Fallback: REST API
   try {
     const r = await fetch(`${API}/chat`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -119,7 +233,7 @@ async function send() {
     history.push({role:'assistant',content:d.answer});
     document.getElementById('statusBadge').textContent = d.source === 'local' ? '本地引擎' : d.source === 'siliconflow' ? '云端推理' : '离线';
   } catch(e) {
-    addMsg('assistant', '连接失败，请检查本地算力一体机是否运行。');
+    addMsg('assistant', '连接失败，请检查网络或算力一体机是否运行。');
   }
 }
 
@@ -156,6 +270,9 @@ document.addEventListener('keydown', e => {
     document.getElementById('chatInput').focus();
   }
 });
+
+// 初始化：尝试连接 DeepTutor
+connectDT();
 </script>
 </body>
 </html>

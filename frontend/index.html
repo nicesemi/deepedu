@@ -154,7 +154,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
   <main class="main">
     <div class="header">
       <h2 id="viewTitle">AI 对话辅导</h2>
-      <span class="badge" id="statusBadge">在线</span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="badge" id="dtBadge" style="display:none;background:#d1fae5;color:#065f46">DeepTutor RAG</span>
+        <span class="badge" id="statusBadge">在线</span>
+      </div>
     </div>
     <div class="content" id="viewContent"></div>
   </main>
@@ -163,9 +166,93 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 <script>
 // ── State ──
 const API = '/api';
+const DT_WS = 'wss://creative-upliftment-production-1ec0.up.railway.app/api/v1/ws';
+const DT_KB = '七年级数学';
 let currentView = 'chat';
 let currentSkill = 'math';
 let chatHistory = [];
+let dtWs = null;
+let dtOnline = false;
+let dtStreamBubble = null;
+
+// ── DeepTutor WebSocket ──
+async function connectDT() {
+  if (dtWs && dtWs.readyState === WebSocket.OPEN) return true;
+  try {
+    dtWs = new WebSocket(DT_WS);
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => { if (dtWs.readyState !== WebSocket.OPEN) { dtOnline = false; resolve(false); } }, 5000);
+      dtWs.onopen = () => {
+        clearTimeout(timeout);
+        dtOnline = true;
+        const badge = document.getElementById('dtBadge');
+        if (badge) badge.style.display = 'inline';
+        document.getElementById('statusBadge').textContent = 'DeepTutor 就绪';
+        resolve(true);
+      };
+      dtWs.onerror = () => { clearTimeout(timeout); dtOnline = false; resolve(false); };
+      dtWs.onclose = () => {
+        dtOnline = false;
+        const badge = document.getElementById('dtBadge');
+        if (badge) badge.style.display = 'none';
+        dtWs = null;
+      };
+      dtWs.onmessage = (e) => {
+        try {
+          const evt = JSON.parse(e.data);
+          const t = evt.type || '';
+          if (t === 'session') {
+            document.getElementById('statusBadge').textContent = 'DeepTutor 生成中...';
+          } else if (t === 'text_delta' || t === 'token') {
+            if (dtStreamBubble && evt.text) {
+              dtStreamBubble.innerHTML += evt.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              const msgs = document.getElementById('chatMessages');
+              if (msgs) msgs.scrollTop = msgs.scrollHeight;
+            }
+          } else if (t === 'content') {
+            if (dtStreamBubble && evt.content) {
+              dtStreamBubble.innerHTML = md2html(evt.content);
+            }
+          } else if (t === 'done') {
+            document.getElementById('statusBadge').textContent = 'DeepTutor 就绪';
+            dtStreamBubble = null;
+          } else if (t === 'error') {
+            if (dtStreamBubble) {
+              dtStreamBubble.innerHTML += '<br><em style="color:#ef4444">生成中断，请重试</em>';
+              dtStreamBubble = null;
+            }
+            document.getElementById('statusBadge').textContent = 'Error';
+          }
+        } catch(e) {}
+      };
+    });
+  } catch(e) { dtOnline = false; return false; }
+}
+
+async function sendViaDT(msg) {
+  const ok = await connectDT();
+  if (!ok) return false;
+
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg assistant';
+  div.innerHTML = '<div class="avatar">DT</div><div class="bubble"></div>';
+  container.appendChild(div);
+  dtStreamBubble = div.querySelector('.bubble');
+  container.scrollTop = container.scrollHeight;
+
+  dtWs.send(JSON.stringify({
+    type: 'start_turn',
+    content: msg,
+    session_id: '',
+    capability: 'chat',
+    knowledge_bases: currentSkill === 'math' ? [DT_KB] : [],
+    tools: ['web_search', 'reason', 'geogebra_analysis'],
+    language: 'zh',
+    preferences: { language: 'zh' }
+  }));
+  return true;
+}
 
 // ── Views ──
 const views = {
@@ -199,7 +286,7 @@ const views = {
       </div>
     </div>`,
 
-  knowledge: () => `<div class="card"><h3>知识图谱</h3><p style="color:var(--text-secondary)">加载中...</p></div><div class="map-grid" id="mapGrid"></div>`,
+  knowledge: () => `<div class="card"><h3>知识图谱</h3><p style="color:var(--text-secondary)" id="kbStatus">加载中...</p></div><div class="map-grid" id="mapGrid"></div>`,
 
   english: () => `<div class="card"><h3>英语课程体系</h3><p style="color:var(--text-secondary)">7 级渐进，从字母到写作</p></div><div id="englishCourses"></div>`,
 
@@ -238,6 +325,16 @@ async function sendMessage() {
   input.value = '';
   appendMessage('user', msg);
 
+  // 数学题优先走 DeepTutor WebSocket（流式）
+  if (currentSkill === 'math') {
+    const sent = await sendViaDT(msg);
+    if (sent) {
+      chatHistory.push({ role: 'user', content: msg });
+      return;
+    }
+  }
+
+  // Fallback: REST API
   try {
     const res = await fetch(`${API}/chat`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -278,6 +375,7 @@ function md2html(text) {
 
 // ── Knowledge ──
 async function loadKnowledge() {
+  // 加载本地知识图谱
   const res = await fetch(`${API}/knowledge`);
   const data = await res.json();
   const grid = document.getElementById('mapGrid');
@@ -289,6 +387,20 @@ async function loadKnowledge() {
       <div class="mastery-bar"><div class="fill" style="width:${Math.random()*60+20}%"></div></div>
     </div>
   `).join('');
+
+  // 加载 DeepTutor 知识库状态
+  try {
+    const dtRes = await fetch(`${API}/deeptutor/knowledge/${DT_KB}`);
+    const dtData = await dtRes.json();
+    if (dtData.found) {
+      document.getElementById('kbStatus').innerHTML =
+        `DeepTutor 知识库「${DT_KB}」已就绪 | ${dtData.documents} 份教材（七~九年级） | ${dtData.chunks} chunks | ${dtData.engine} Hybrid RAG | 向量维度 ${dtData.dimension}`;
+    } else {
+      document.getElementById('kbStatus').textContent = 'DeepTutor 知识库未连接，使用本地知识图谱';
+    }
+  } catch(e) {
+    document.getElementById('kbStatus').textContent = '知识图谱已加载（本地）';
+  }
 }
 
 // ── English ──
@@ -335,6 +447,15 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.view));
 });
 navigate('chat');
+// 初始化 DeepTutor 连接
+connectDT();
+
+// 导航时重连 DT
+const origNavigate = navigate;
+navigate = function(view) {
+  origNavigate(view);
+  if (view === 'chat') connectDT();
+};
 </script>
 </body>
 </html>
