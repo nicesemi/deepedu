@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
+import requests
 
 # ── Config ──
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
@@ -70,25 +70,23 @@ SYSTEM_PROMPT = """你是 deepedu.school 本地算力引擎的 AI 辅导老师�
 回答末尾用一句话鼓励学生。"""
 
 
-async def check_ollama_available() -> bool:
+def check_ollama_available() -> bool:
     try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"{OLLAMA_HOST}/api/tags")
-            return r.status_code == 200
+        r = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        return r.status_code == 200
     except Exception:
         return False
 
 
-async def pull_model_if_needed():
+def pull_model_if_needed():
     """Pull the model if not available"""
     try:
-        async with httpx.AsyncClient(timeout=120) as c:
-            r = await c.get(f"{OLLAMA_HOST}/api/tags")
-            models = [m["name"] for m in r.json().get("models", [])]
-            if OLLAMA_MODEL not in models and OLLAMA_MODEL.split(":")[0] not in models:
-                print(f"Pulling model {OLLAMA_MODEL}...")
-                await c.post(f"{OLLAMA_HOST}/api/pull", json={"name": OLLAMA_MODEL})
-                print(f"Model {OLLAMA_MODEL} pulled successfully.")
+        r = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=10)
+        models = [m["name"] for m in r.json().get("models", [])]
+        if OLLAMA_MODEL not in models and OLLAMA_MODEL.split(":")[0] not in models:
+            print(f"Pulling model {OLLAMA_MODEL}...")
+            requests.post(f"{OLLAMA_HOST}/api/pull", json={"name": OLLAMA_MODEL}, timeout=300)
+            print(f"Model {OLLAMA_MODEL} pulled successfully.")
     except Exception as e:
         print(f"Failed to pull model: {e}")
 
@@ -97,9 +95,9 @@ async def pull_model_if_needed():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"deepedu.school local engine starting on port {PORT}...")
-    if await check_ollama_available():
+    if check_ollama_available():
         print("Ollama detected, checking model...")
-        await pull_model_if_needed()
+        pull_model_if_needed()
     else:
         print("WARNING: Ollama not available. Please install: curl -fsSL https://ollama.com/install.sh | sh")
     yield
@@ -110,7 +108,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 @app.get("/health")
 async def health():
-    ollama_ok = await check_ollama_available()
+    ollama_ok = check_ollama_available()
     return {
         "status": "ok",
         "ollama": ollama_ok,
@@ -121,7 +119,7 @@ async def health():
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    ollama_ok = await check_ollama_available()
+    ollama_ok = check_ollama_available()
     if not ollama_ok:
         return ChatResponse(
             answer="本地 Ollama 引擎未运行。请先安装 Ollama（ollama.com），然后运行 `ollama serve`。",
@@ -132,28 +130,28 @@ async def chat(req: ChatRequest):
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + req.messages
 
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(
-                f"{OLLAMA_HOST}/api/chat",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {
-                        "temperature": req.temperature,
-                        "num_predict": req.max_tokens
-                    }
+        resp = requests.post(
+            f"{OLLAMA_HOST}/api/chat",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "temperature": req.temperature,
+                    "num_predict": req.max_tokens
                 }
+            },
+            timeout=120
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return ChatResponse(
+                answer=data.get("message", {}).get("content", ""),
+                model=OLLAMA_MODEL,
+                source="local_ollama"
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                return ChatResponse(
-                    answer=data.get("message", {}).get("content", ""),
-                    model=OLLAMA_MODEL,
-                    source="local_ollama"
-                )
-            else:
-                return ChatResponse(answer=f"Ollama 返回错误: {resp.status_code}", model=OLLAMA_MODEL, source="error")
+        else:
+            return ChatResponse(answer=f"Ollama 返回错误: {resp.status_code}", model=OLLAMA_MODEL, source="error")
     except Exception as e:
         return ChatResponse(answer=f"推理引擎异常: {str(e)}", model=OLLAMA_MODEL, source="error")
 

@@ -238,8 +238,9 @@ def get_knowledge_node(node_id: str):
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     msg = req.message.strip()
-    local_answer = solve_math_local(msg)
 
+    # Priority 0: Local math solver (instant, no network)
+    local_answer = solve_math_local(msg)
     if local_answer and req.skill_type == "math":
         return {"answer": local_answer, "source": "local"}
 
@@ -248,15 +249,15 @@ async def chat(req: ChatRequest):
         messages += req.history
     messages.append({"role": "user", "content": msg})
 
-    # Try SiliconFlow first
-    answer = await call_siliconflow(messages)
-    if answer:
-        return {"answer": answer, "source": "siliconflow"}
-
-    # Try local engine
+    # Priority 1: Local Ollama engine (fast, free, private)
     answer = await call_local_engine(messages)
     if answer:
         return {"answer": answer, "source": "local_engine"}
+
+    # Priority 2: SiliconFlow API (cloud fallback)
+    answer = await call_siliconflow(messages)
+    if answer:
+        return {"answer": answer, "source": "siliconflow"}
 
     # Fallback
     if local_answer:

@@ -212,7 +212,23 @@ async function send() {
   input.value = '';
   addMsg('user', msg);
 
-  // 数学题优先走 DeepTutor（WebSocket 流式）
+  // Priority 0: Try local Ollama engine first (fast, free, offline-capable)
+  try {
+    const localR = await fetch('http://localhost:8765/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({messages:[{role:'user',content:msg}],temperature:0.3,max_tokens:1024})
+    });
+    if (localR.ok) {
+      const d = await localR.json();
+      addMsg('assistant', d.answer);
+      history.push({role:'user',content:msg});
+      history.push({role:'assistant',content:d.answer});
+      document.getElementById('statusBadge').textContent = '算力一体机';
+      return;
+    }
+  } catch(e) { /* local engine not available, fall through */ }
+
+  // Priority 1: DeepTutor WS for math
   if (skill === 'math') {
     const sent = await sendViaDT(msg);
     if (sent) {
@@ -221,7 +237,7 @@ async function send() {
     }
   }
 
-  // Fallback: REST API
+  // Priority 2: Vercel REST API
   try {
     const r = await fetch(`${API}/chat`, {
       method: 'POST', headers: {'Content-Type':'application/json'},

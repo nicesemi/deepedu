@@ -16,34 +16,39 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Check Ollama
-if ! command -v ollama &> /dev/null; then
+OLLAMA_BIN=""
+for path in /usr/local/bin/ollama /opt/homebrew/bin/ollama; do
+  if [ -x "$path" ]; then OLLAMA_BIN="$path"; break; fi
+done
+if [ -z "$OLLAMA_BIN" ] && command -v ollama &> /dev/null; then
+  OLLAMA_BIN="ollama"
+fi
+
+if [ -z "$OLLAMA_BIN" ]; then
     echo "Ollama 未安装。正在安装..."
     curl -fsSL https://ollama.com/install.sh | sh
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Ollama 安装失败。请手动访问 https://ollama.com 下载安装。"
-        exit 1
-    fi
+    OLLAMA_BIN="ollama"
     echo "Ollama 安装完成！"
 fi
 
 # Start Ollama if not running
 if ! pgrep -x "ollama" > /dev/null; then
     echo "启动 Ollama 服务..."
-    ollama serve &
+    "$OLLAMA_BIN" serve &
     sleep 3
 fi
 
 # Pull model if needed
 echo "检查模型..."
 MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
-if ! ollama list | grep -q "$MODEL"; then
+if ! "$OLLAMA_BIN" list | grep -q "$MODEL"; then
     echo "正在下载模型 $MODEL ..."
-    ollama pull "$MODEL"
+    "$OLLAMA_BIN" pull "$MODEL"
 fi
 
 # Install Python deps
 echo "检查 Python 依赖..."
-pip3 install -q fastapi uvicorn httpx pydantic 2>/dev/null
+pip3 install -q fastapi uvicorn requests pydantic 2>/dev/null
 
 # Start engine
 echo ""
