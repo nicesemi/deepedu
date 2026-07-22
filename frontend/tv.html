@@ -237,7 +237,7 @@ async function send() {
     }
   }
 
-  // Priority 2: Vercel REST API
+  // Priority 2: Vercel API (try, may be down)
   try {
     const r = await fetch(`${API}/chat`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -249,7 +249,7 @@ async function send() {
     history.push({role:'assistant',content:d.answer});
     document.getElementById('statusBadge').textContent = d.source === 'local' ? '本地引擎' : d.source === 'siliconflow' ? '云端推理' : '离线';
   } catch(e) {
-    addMsg('assistant', '连接失败，请检查网络或算力一体机是否运行。');
+    addMsg('assistant', '所有引擎均不可用。请：\n1. 双击 local-engine/start.command 启动本地引擎\n2. 或检查 DeepTutor 服务状态');
   }
 }
 

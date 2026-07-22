@@ -362,7 +362,7 @@ async function sendMessage() {
     chatHistory.push({ role: 'assistant', content: data.answer });
     document.getElementById('statusBadge').textContent = data.source === 'local' ? '本地引擎' : data.source === 'siliconflow' ? '云端推理' : '离线模式';
   } catch(e) {
-    appendMessage('assistant', '网络连接失败，请检查后端服务是否运行。');
+    appendMessage('assistant', '所有引擎均不可用。请：\n1. 双击 local-engine/start.command 启动本地引擎\n2. 或检查 DeepTutor 服务状态');
   }
 }
 
