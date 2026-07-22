@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>deepedu.school — TV 版</title>
+<style>
+:root {--primary:#2563eb;--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--border:#334155;--radius:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;background:var(--card);border-bottom:1px solid var(--border)}
+header h1{font-size:28px;color:var(--primary)}
+.badge{background:#1e3a5f;color:#60a5fa;padding:4px 16px;border-radius:20px;font-size:14px}
+main{flex:1;display:flex;flex-direction:column;padding:0 40px;overflow:hidden}
+.skills{display:flex;gap:12px;padding:20px 0;flex-wrap:wrap}
+.skill-tag{padding:10px 24px;border:2px solid var(--border);border-radius:30px;font-size:16px;cursor:pointer;background:var(--card);color:var(--text2);transition:all .2s}
+.skill-tag.active,.skill-tag:focus{background:var(--primary);color:#fff;border-color:var(--primary);outline:none}
+.messages{flex:1;overflow-y:auto;padding:20px 0;font-size:22px;line-height:1.6}
+.msg{margin-bottom:24px;display:flex;gap:16px;align-items:flex-start}
+.msg.user{flex-direction:row-reverse}
+.msg .av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.msg.assistant .av{background:#1e3a5f;color:#60a5fa}
+.msg.user .av{background:var(--primary);color:#fff}
+.msg .bub{max-width:70%;padding:16px 24px;border-radius:16px}
+.msg.assistant .bub{background:var(--card)}
+.msg.user .bub{background:var(--primary)}
+.msg .bub h2,.msg .bub h3{margin-bottom:10px}
+.input-area{display:flex;gap:16px;padding:24px 0;border-top:2px solid var(--border)}
+.input-area input{flex:1;padding:16px 24px;border:2px solid var(--border);border-radius:12px;font-size:20px;background:var(--card);color:var(--text);outline:none}
+.input-area input:focus{border-color:var(--primary)}
+.input-area button{padding:16px 36px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:20px;cursor:pointer;font-weight:600}
+.status{position:fixed;bottom:20px;right:40px;font-size:14px;color:var(--text2)}
+.focused-ring{box-shadow:0 0 0 4px rgba(37,99,235,.3)}
+
+@media (max-width:800px){
+  header,.input-area,.skills{padding-left:16px;padding-right:16px}
+  header h1{font-size:22px}
+  .messages{font-size:18px}
+  .msg .bub{padding:12px 16px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>deepedu.school TV</h1>
+  <span class="badge" id="statusBadge">遥控器就绪</span>
+</header>
+
+<main>
+  <div class="skills" id="skillBar">
+    <span class="skill-tag active" data-skill="math" tabindex="0">🧮 数学辅导</span>
+    <span class="skill-tag" data-skill="english" tabindex="0">🔤 英语听说</span>
+    <span class="skill-tag" data-skill="compose" tabindex="0">✍️ 作文批改</span>
+    <span class="skill-tag" data-skill="quiz" tabindex="0">📝 自适应测评</span>
+    <span class="skill-tag" data-skill="oral" tabindex="0">🗣️ 口算</span>
+    <span class="skill-tag" data-skill="dictation" tabindex="0">👂 听写</span>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="msg assistant">
+      <div class="av">DT</div>
+      <div class="bub">
+        <strong>DeepTutor</strong> — 家庭教育 AI 助手<br><br>
+        用遥控器方向键选择技能，输入题目后按确定键发送。<br><br>
+        试试：<br>
+        • 鸡兔同笼 35 头 94 脚<br>
+        • 3x + 5 = 20<br>
+        • 正方形边长 8 求面积
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <input type="text" id="chatInput" placeholder="输入题目，按遥控器确定键发送..." autofocus>
+    <button id="sendBtn" onclick="send()">发送</button>
+  </div>
+</main>
+
+<div class="status">算力一体机 ¥2,999 买断 · 遥控器操作</div>
+
+<script>
+const API = 'https://deependu.school/api';
+let skill = 'math';
+let history = [];
+
+document.querySelectorAll('.skill-tag').forEach(t => {
+  t.addEventListener('click', () => switchSkill(t));
+  t.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); switchSkill(t); }
+  });
+});
+
+function switchSkill(el) {
+  document.querySelectorAll('.skill-tag').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  skill = el.dataset.skill;
+}
+
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') send();
+});
+
+async function send() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addMsg('user', msg);
+
+  try {
+    const r = await fetch(`${API}/chat`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message:msg, skill_type:skill, grade:'grade-4', history:history.slice(-10)})
+    });
+    const d = await r.json();
+    addMsg('assistant', d.answer);
+    history.push({role:'user',content:msg});
+    history.push({role:'assistant',content:d.answer});
+    document.getElementById('statusBadge').textContent = d.source === 'local' ? '本地引擎' : d.source === 'siliconflow' ? '云端推理' : '离线';
+  } catch(e) {
+    addMsg('assistant', '连接失败，请检查本地算力一体机是否运行。');
+  }
+}
+
+function addMsg(role, text) {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="av">${role === 'assistant' ? 'DT' : '你'}</div><div class="bub">${text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/^## (.+)/gm,'<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>')
+  }</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// Keyboard navigation for TV remote
+document.addEventListener('keydown', e => {
+  const tags = document.querySelectorAll('.skill-tag');
+  const active = document.querySelector('.skill-tag:focus');
+  const idx = Array.from(tags).indexOf(active);
+
+  if (e.key === 'ArrowRight' && idx < tags.length - 1) {
+    e.preventDefault();
+    tags[idx + 1].focus();
+  }
+  if (e.key === 'ArrowLeft' && idx > 0) {
+    e.preventDefault();
+    tags[idx - 1].focus();
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    document.getElementById('chatInput').focus();
+  }
+});
+</script>
+</body>
+</html>
