@@ -2,6 +2,7 @@
   "buildCommand": "echo 'Static frontend'",
   "outputDirectory": "frontend",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/frontend/$1" }
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/frontend/$1" }
   ]
 }
