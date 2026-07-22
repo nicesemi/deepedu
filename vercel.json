@@ -1,14 +1,7 @@
 {
-  "buildCommand": "echo 'Static frontend + Python API'",
+  "buildCommand": "echo 'Static frontend'",
   "outputDirectory": "frontend",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/backend/api/$1" },
     { "source": "/(.*)", "destination": "/frontend/$1" }
-  ],
-  "functions": {
-    "backend/api/index.py": {
-      "runtime": "python3.12",
-      "maxDuration": 30
-    }
-  }
+  ]
 }
