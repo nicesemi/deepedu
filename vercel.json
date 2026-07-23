@@ -2,6 +2,7 @@
   "buildCommand": "echo 'Static frontend'",
   "outputDirectory": "frontend",
   "rewrites": [
+    { "source": "/api/edulab", "destination": "/api/edulab" },
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api/).*)", "destination": "/frontend/$1" }
   ]
