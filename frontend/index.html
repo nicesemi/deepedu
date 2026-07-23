@@ -1,318 +1,97 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DeepEdu School</title>
-<style>
-  :root {
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-card: #334155;
-    --bg-card-hover: #475569;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --accent: #3b82f6;
-    --accent-glow: rgba(59,130,246,0.4);
-    --border: #475569;
-    --green: #10b981;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
-    display: flex; flex-direction: column;
-  }
-  /* Header */
-  .header {
-    padding: 16px 24px; background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .header-left h1 { font-size: 22px; font-weight: 700; }
-  .header-left .subtitle { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
-  .header-right { display: flex; gap: 12px; align-items: center; }
-  .user-avatar {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--accent); display: flex; align-items: center;
-    justify-content: center; font-size: 14px; font-weight: 600; cursor: pointer;
-  }
-
-  /* Skill Tags */
-  .skill-tags {
-    display: flex; gap: 10px; padding: 14px 24px;
-    background: var(--bg-secondary); flex-wrap: wrap;
-    border-bottom: 1px solid var(--border);
-  }
-  .skill-tag {
-    background: var(--bg-card); color: var(--text-primary);
-    border: 1.5px solid transparent; padding: 8px 18px; border-radius: 20px;
-    font-size: 14px; cursor: pointer; transition: all 0.2s; outline: none;
-    white-space: nowrap;
-  }
-  .skill-tag:hover {
-    border-color: var(--accent); background: var(--bg-card-hover);
-    box-shadow: 0 0 10px var(--accent-glow);
-  }
-  .skill-tag.active { border-color: var(--accent); background: var(--accent); }
-
-  /* App Bar */
-  .app-bar-section {
-    padding: 14px 24px; background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-  }
-  .app-bar-label {
-    color: var(--text-secondary); font-size: 11px; text-transform: uppercase;
-    letter-spacing: 1.5px; margin-bottom: 10px; font-weight: 600;
-  }
-  .app-bar {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 14px;
-  }
-  .app-card {
-    background: var(--bg-card); border: 1.5px solid transparent;
-    border-radius: 12px; padding: 16px; cursor: pointer;
-    transition: all 0.2s; outline: none; display: flex;
-    flex-direction: column; gap: 6px; position: relative;
-    text-decoration: none; color: var(--text-primary);
-  }
-  .app-card:hover {
-    border-color: var(--accent); background: var(--bg-card-hover);
-    box-shadow: 0 4px 16px var(--accent-glow); transform: translateY(-2px);
-  }
-  .app-card .app-icon {
-    font-size: 24px; width: 38px; height: 38px;
-    background: rgba(59,130,246,0.15); border-radius: 8px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
-  .app-card .app-name { font-size: 14px; font-weight: 600; }
-  .app-card .app-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
-  .app-card .app-badge {
-    font-size: 10px; background: rgba(59,130,246,0.2);
-    color: var(--accent); padding: 2px 8px; border-radius: 8px; align-self: flex-start;
-  }
-  .app-card .open-hint {
-    font-size: 10px; color: var(--text-secondary); opacity: 0;
-    transition: opacity 0.2s; margin-top: 2px;
-  }
-  .app-card:hover .open-hint { opacity: 1; }
-
-  /* Main Content */
-  .main-content { flex: 1; display: flex; min-height: 400px; }
-  .chat-area {
-    flex: 1; padding: 20px 24px; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 12px;
-    max-width: 450px; border-right: 1px solid var(--border);
-  }
-  .iframe-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-primary); }
-  .iframe-area.hidden {
-    display: flex; align-items: center; justify-content: center;
-    color: var(--text-secondary);
-  }
-  .iframe-area.hidden iframe { display: none; }
-  .iframe-area iframe {
-    flex: 1; border: none; width: 100%; height: 100%; background: #fff;
-  }
-  .iframe-header {
-    padding: 8px 16px; background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border); display: flex;
-    align-items: center; justify-content: space-between; flex-shrink: 0;
-  }
-  .iframe-title { font-size: 13px; font-weight: 600; }
-  .iframe-actions { display: flex; gap: 8px; }
-  .iframe-btn {
-    background: var(--bg-card); border: 1px solid var(--border);
-    color: var(--text-primary); padding: 4px 12px; border-radius: 6px;
-    cursor: pointer; font-size: 12px; outline: none; transition: all 0.2s;
-  }
-  .iframe-btn:hover { border-color: var(--accent); background: var(--bg-card-hover); }
-  .iframe-btn.external { border-color: var(--green); color: var(--green); }
-  .iframe-btn.external:hover { background: rgba(16,185,129,0.15); }
-  .iframe-placeholder {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 8px;
-  }
-  .iframe-placeholder span { font-size: 40px; opacity: 0.3; }
-
-  .welcome { color: var(--text-secondary); }
-  .welcome h2 { color: var(--text-primary); font-size: 18px; margin-bottom: 6px; }
-  .welcome p { font-size: 13px; line-height: 1.5; }
-
-  .app-list-inline { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-  .app-list-item {
-    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-    background: var(--bg-card); border-radius: 10px; cursor: pointer;
-    transition: all 0.2s; text-decoration: none; color: var(--text-primary);
-    border: 1px solid transparent;
-  }
-  .app-list-item:hover {
-    border-color: var(--accent); background: var(--bg-card-hover);
-  }
-  .app-list-item .item-icon { font-size: 20px; }
-  .app-list-item .item-name { font-size: 13px; font-weight: 600; flex: 1; }
-  .app-list-item .item-arrow { color: var(--text-secondary); font-size: 14px; }
-
-  @media (max-width: 768px) {
-    .main-content { flex-direction: column; }
-    .chat-area { max-width: none; border-right: none; border-bottom: 1px solid var(--border); }
-    .app-bar { grid-template-columns: 1fr 1fr; }
-  }
-</style>
-</head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>deepedu.school — Web 版</title>
+<style>:root{--primary:#2563eb;--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--text2:#94a3b8;--border:#334155;--green:#10b981;--amber:#f59e0b;--red:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden}
+.main-col{flex:1;display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+header h1{font-size:22px;color:var(--primary)}
+.badge{background:#1e3a5f;color:#60a5fa;padding:3px 12px;border-radius:20px;font-size:12px}
+.badge.on{background:#065f46;color:#34d399}
+.apps-bar{display:flex;gap:10px;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--border);align-items:center;flex-shrink:0;overflow-x:auto}
+.apps-bar .label{font-size:12px;color:var(--text2);margin-right:4px}
+.app-card{display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;background:var(--bg);color:var(--text2);font-size:13px;white-space:nowrap;transition:all .2s;flex-shrink:0}
+.app-card:hover{border-color:var(--primary);color:var(--text);background:rgba(37,99,235,.1)}
+.app-card .app-icon{font-size:18px}
+.app-panel{width:0;overflow:hidden;transition:width .3s;background:var(--bg);border-left:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column}
+.app-panel.open{width:55%}
+.app-panel .app-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.app-panel .app-header h3{font-size:14px;color:var(--primary)}
+.app-panel .app-header button{padding:5px 12px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:11px}
+.app-panel .app-header button:hover{border-color:var(--primary);color:var(--text)}
+.app-panel iframe{flex:1;border:none;width:100%}
+main{flex:1;display:flex;flex-direction:column;padding:0 24px;overflow:hidden}
+.skills{display:flex;gap:8px;padding:14px 0;flex-wrap:wrap;flex-shrink:0}
+.skill-tag{padding:6px 16px;border:2px solid var(--border);border-radius:24px;font-size:13px;cursor:pointer;background:var(--card);color:var(--text2);transition:all .2s}
+.skill-tag.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.messages{flex:1;overflow-y:auto;padding:14px 0;font-size:15px;line-height:1.6}
+.msg{margin-bottom:16px;display:flex;gap:12px;align-items:flex-start}
+.msg.user{flex-direction:row-reverse}
+.msg .av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.msg.assistant .av{background:#1e3a5f;color:#60a5fa}
+.msg.user .av{background:var(--primary);color:#fff}
+.msg .bub{max-width:75%;padding:12px 16px;border-radius:12px}
+.msg.assistant .bub{background:var(--card)}
+.msg.user .bub{background:var(--primary)}
+.msg .cost{font-size:10px;color:var(--text2);margin-top:4px}
+.input-area{display:flex;gap:10px;padding:16px 0;border-top:1px solid var(--border);flex-shrink:0}
+.input-area input{flex:1;padding:10px 16px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--card);color:var(--text);outline:none}
+.input-area input:focus{border-color:var(--primary)}
+.input-area button{padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;font-weight:600}
+.token-panel{width:300px;background:var(--card);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.token-panel h3{padding:16px 16px 10px;font-size:14px;color:var(--primary);border-bottom:1px solid var(--border)}
+.tp-section{padding:12px 16px;border-bottom:1px solid var(--border)}
+.tp-section h4{font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.pg-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:4px}
+.pg-fill{height:100%;border-radius:3px;transition:width .3s}
+.pg-fill.low{background:var(--green)}.pg-fill.mid{background:var(--amber)}.pg-fill.high{background:var(--red)}
+.tp-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
+.tp-row .tp-k{color:var(--text2)}.tp-row .tp-v{font-weight:600}
+.tp-nodes{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tp-node{padding:3px 8px;border-radius:8px;font-size:10px;border:1px solid var(--border);color:var(--text2)}
+.tp-node.active{color:var(--green);border-color:var(--green)}
+@media(max-width:900px){.token-panel,.app-panel{display:none}header,.apps-bar,.skills,.input-area{padding-left:16px;padding-right:16px}}
+</style></head>
 <body>
-
-<div class="header">
-  <div class="header-left">
-    <h1>DeepEdu School</h1>
-    <p class="subtitle">AI 驱动的个性化教育平台</p>
-  </div>
-  <div class="header-right">
-    <span style="font-size:13px;color:var(--text-secondary)">Guest</span>
-    <div class="user-avatar">G</div>
-  </div>
+<div class="main-col">
+<header><h1>deepedu.school</h1><div style="display:flex;gap:8px;align-items:center"><span class="badge on" id="dtBadge" style="display:none">DeepTutor</span><span class="badge" id="statusBadge">就绪</span></div></header>
+<div class="apps-bar"><span class="label">教育应用</span><div class="app-card" data-app="math-kg" data-url="https://math-knowledge-graph.vercel.app" onclick="openApp(this)"><span class="app-icon">📐</span>数学知识图谱</div><div class="app-card" data-app="english-up" data-url="https://up-sage.vercel.app" onclick="openApp(this)"><span class="app-icon">🗣️</span>English Level Up</div><div class="app-card" data-app="edulab" data-url="https://edulab-pi.vercel.app" onclick="openApp(this)"><span class="app-icon">🔮</span>edulab 数学课件</div><div class="app-card" data-app="taxonomy" data-url="https://marble-taxonomy-explorer.vercel.app" onclick="openApp(this)"><span class="app-icon">🧠</span>os-taxonomy</div></div>
+<main>
+<div class="skills" id="skillBar"><span class="skill-tag active" data-skill="math">数学辅导</span><span class="skill-tag" data-skill="english">英语听说</span><span class="skill-tag" data-skill="compose">作文批改</span><span class="skill-tag" data-skill="quiz">自适应测评</span><span class="skill-tag" data-skill="oral">口算</span><span class="skill-tag" data-skill="chinese">语文</span></div>
+<div class="messages" id="messages"><div class="msg assistant"><div class="av">DT</div><div class="bub"><strong>DeepTutor</strong> — 家庭教育 AI 助手<br><br>点击顶部教育应用卡片打开对应 Vercel 应用。<br><br>试试：鸡兔同笼 · 三角函数 · 英语语法 · 作文点评</div></div></div>
+<div class="input-area"><input type="text" id="chatInput" placeholder="输入题目，回车发送..." autofocus><button onclick="send()">发送</button></div>
+</main>
 </div>
-
-<div class="skill-tags" id="skillTags">
-  <button class="skill-tag active" data-skill="math">数学辅导</button>
-  <button class="skill-tag" data-skill="english">英语听说</button>
-  <button class="skill-tag" data-skill="science">科学实验</button>
-  <button class="skill-tag" data-skill="coding">编程入门</button>
-  <button class="skill-tag" data-skill="general">通用知识</button>
+<div class="app-panel" id="appPanel"><div class="app-header"><h3 id="appTitle">应用</h3><div style="display:flex;gap:6px"><button onclick="openExt()">新窗口打开</button><button onclick="closeApp()">关闭</button></div></div><iframe id="appFrame" src="" allow="camera;microphone;fullscreen"></iframe></div>
+<div class="token-panel">
+<h3>Token 计费</h3>
+<div class="tp-section"><h4>月度用量</h4><div class="pg-bar"><div class="pg-fill low" id="quotaBar" style="width:0%"></div></div><div class="tp-row"><span class="tp-k">已用</span><span class="tp-v" id="panelUsed">0</span></div><div class="tp-row"><span class="tp-k">剩余</span><span class="tp-v">100,000</span></div></div>
+<div class="tp-section"><h4>本次请求</h4><div class="tp-row"><span class="tp-k">Token</span><span class="tp-v" id="lastCost">—</span></div><div class="tp-row"><span class="tp-k" style="color:var(--amber)">费用</span><span class="tp-v" id="lastFee">—</span></div></div>
+<div class="tp-section"><h4>Skill 单价</h4><div class="tp-row"><span class="tp-k">数学辅导</span><span class="tp-v">3,000</span></div><div class="tp-row"><span class="tp-k">英语听说</span><span class="tp-v">2,000</span></div><div class="tp-row"><span class="tp-k">作文批改</span><span class="tp-v">6,000</span></div><div class="tp-row"><span class="tp-k">口算</span><span class="tp-v">300</span></div><div class="tp-row"><span class="tp-k">听写</span><span class="tp-v">400</span></div><div class="tp-row"><span class="tp-k">语文</span><span class="tp-v">4,000</span></div></div>
+<div class="tp-section"><h4>算力节点</h4><div class="tp-nodes"><span class="tp-node active">Mac 本地</span><span class="tp-node">芒果云 GPU</span><span class="tp-node">OPC #1</span><span class="tp-node">OPC #2</span><span class="tp-node">Railway</span></div></div>
 </div>
-
-<div class="app-bar-section">
-  <p class="app-bar-label">教育应用</p>
-  <div class="app-bar" id="appBar">
-    <a class="app-card" href="#" data-url="https://math-knowledge-graph.vercel.app" data-name="数学知识图谱">
-      <div class="app-icon">&#128208;</div>
-      <div class="app-name">数学知识图谱</div>
-      <div class="app-desc">交互式数学概念关系图，探索知识点之间的深层联系</div>
-      <span class="app-badge">数学辅导</span>
-      <span class="open-hint">点击预览 &#8594;</span>
-    </a>
-    <a class="app-card" href="#" data-url="https://up-sage.vercel.app" data-name="English Level Up">
-      <div class="app-icon">&#128483;&#65039;</div>
-      <div class="app-name">English Level Up</div>
-      <div class="app-desc">英语听说训练，分级提升语言能力</div>
-      <span class="app-badge">英语听说</span>
-      <span class="open-hint">点击预览 &#8594;</span>
-    </a>
-    <a class="app-card" href="#" data-url="https://edulab-pi.vercel.app" data-name="edulab 数学课件">
-      <div class="app-icon">&#128302;</div>
-      <div class="app-name">edulab 数学课件</div>
-      <div class="app-desc">3D 几何可视化课件，沉浸式数学学习体验</div>
-      <span class="app-badge">数学辅导</span>
-      <span class="open-hint">点击预览 &#8594;</span>
-    </a>
-    <a class="app-card" href="#" data-url="https://marble-taxonomy-explorer.vercel.app" data-name="os-taxonomy 知识图谱">
-      <div class="app-icon">&#129504;</div>
-      <div class="app-name">os-taxonomy</div>
-      <div class="app-desc">通用分类学知识图谱探索器</div>
-      <span class="app-badge">通用知识</span>
-      <span class="open-hint">点击预览 &#8594;</span>
-    </a>
-  </div>
-</div>
-
-<div class="main-content">
-  <div class="chat-area" id="chatArea">
-    <div class="welcome">
-      <h2>欢迎使用 DeepEdu School</h2>
-      <p>选择上方技能标签开始对话，或点击下方教育应用快速进入。</p>
-    </div>
-    <div class="app-list-inline">
-      <a class="app-list-item" href="#" data-url="https://math-knowledge-graph.vercel.app" data-name="数学知识图谱">
-        <span class="item-icon">&#128208;</span>
-        <span class="item-name">数学知识图谱</span>
-        <span class="item-arrow">&#8599;</span>
-      </a>
-      <a class="app-list-item" href="#" data-url="https://up-sage.vercel.app" data-name="English Level Up">
-        <span class="item-icon">&#128483;&#65039;</span>
-        <span class="item-name">English Level Up</span>
-        <span class="item-arrow">&#8599;</span>
-      </a>
-      <a class="app-list-item" href="#" data-url="https://edulab-pi.vercel.app" data-name="edulab 数学课件">
-        <span class="item-icon">&#128302;</span>
-        <span class="item-name">edulab 数学课件</span>
-        <span class="item-arrow">&#8599;</span>
-      </a>
-      <a class="app-list-item" href="#" data-url="https://marble-taxonomy-explorer.vercel.app" data-name="os-taxonomy 知识图谱">
-        <span class="item-icon">&#129504;</span>
-        <span class="item-name">os-taxonomy</span>
-        <span class="item-arrow">&#8599;</span>
-      </a>
-    </div>
-  </div>
-  <div class="iframe-area hidden" id="iframeArea">
-    <div class="iframe-placeholder">
-      <span>&#128218;</span>
-      <p style="color:var(--text-secondary);font-size:13px;">点击左侧教育应用卡片预览</p>
-    </div>
-    <iframe id="appFrame" src="" allow="camera;microphone;fullscreen" style="display:none;"></iframe>
-  </div>
-</div>
-
 <script>
-  const skillTags = document.querySelectorAll('.skill-tag');
-  skillTags.forEach(tag => {
-    tag.addEventListener('click', () => {
-      skillTags.forEach(t => t.classList.remove('active'));
-      tag.classList.add('active');
-    });
-  });
-
-  const appFrame = document.getElementById('appFrame');
-  const iframeArea = document.getElementById('iframeArea');
-  let currentAppUrl = '';
-  let currentAppName = '';
-
-  function openApp(url, name) {
-    currentAppUrl = url;
-    currentAppName = name;
-    appFrame.src = url;
-    appFrame.style.display = 'block';
-    iframeArea.classList.remove('hidden');
-    iframeArea.querySelector('.iframe-placeholder').style.display = 'none';
-    // Add iframe header if not exists
-    if (!document.getElementById('iframeHeader')) {
-      const hdr = document.createElement('div');
-      hdr.id = 'iframeHeader';
-      hdr.className = 'iframe-header';
-      hdr.innerHTML = '<span class="iframe-title" id="iframeTitle">' + name + '</span>' +
-        '<div class="iframe-actions">' +
-        '<button class="iframe-btn external" id="iframeExternal">在新标签打开 &#8599;</button>' +
-        '<button class="iframe-btn" id="iframeCloseBtn">关闭</button>' +
-        '</div>';
-      iframeArea.insertBefore(hdr, appFrame);
-      document.getElementById('iframeCloseBtn').addEventListener('click', closeApp);
-      document.getElementById('iframeExternal').addEventListener('click', () => {
-        window.open(currentAppUrl, '_blank');
-      });
-    } else {
-      document.getElementById('iframeTitle').textContent = name;
-    }
-  }
-
-  function closeApp() {
-    appFrame.src = '';
-    appFrame.style.display = 'none';
-    iframeArea.classList.add('hidden');
-    iframeArea.querySelector('.iframe-placeholder').style.display = 'flex';
-    const hdr = document.getElementById('iframeHeader');
-    if (hdr) hdr.remove();
-  }
-
-  // Bind all app cards and list items
-  document.querySelectorAll('.app-card, .app-list-item').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.preventDefault();
-      openApp(el.getAttribute('data-url'), el.getAttribute('data-name'));
-    });
-  });
+const API='/api',DT_WS='wss://creative-upliftment-production-1ec0.up.railway.app/api/v1/ws',LOCAL_URL='http://localhost:8765/chat';
+let skill='math',computeMode='auto',history=[],ws=null,csMsg=null,tokenUsed=0,curApp=null;
+const TOKEN_QUOTA=100000;
+const TK={math:{c:3000,l:500},english:{c:2000,l:400},compose:{c:6000,l:0},quiz:{c:4000,l:1000},oral:{c:300,l:50},dictation:{c:400,l:100},chinese:{c:4000,l:500}};
+const TP=0.00003;
+function openApp(el){curApp=el.dataset.app;document.getElementById('appTitle').textContent=el.textContent.trim();document.getElementById('appFrame').src=el.dataset.url;document.getElementById('appPanel').classList.add('open');document.querySelectorAll('.app-card').forEach(c=>{c.style.borderColor='';c.style.color=''});el.style.borderColor='var(--primary)';el.style.color='var(--text)'}
+function closeApp(){document.getElementById('appPanel').classList.remove('open');document.getElementById('appFrame').src='';curApp=null;document.querySelectorAll('.app-card').forEach(c=>{c.style.borderColor='';c.style.color=''})}
+function openExt(){if(curApp){let el=document.querySelector('[data-app="'+curApp+'"]');if(el)window.open(el.dataset.url,'_blank')}}
+function upPanel(){let p=Math.min(100,(tokenUsed/TOKEN_QUOTA)*100);document.getElementById('quotaBar').style.width=p+'%';document.getElementById('quotaBar').className='pg-fill '+(p>80?'high':p>50?'mid':'low');document.getElementById('panelUsed').textContent=tokenUsed.toLocaleString()}
+function addTokens(n){tokenUsed+=n;upPanel();document.getElementById('lastCost').textContent=n.toLocaleString();document.getElementById('lastFee').textContent='¥'+(n*TP).toFixed(4)}
+async function cDT(){if(ws&&ws.readyState===WebSocket.OPEN)return true;try{ws=new WebSocket(DT_WS);return new Promise(r=>{ws.onopen=()=>{document.getElementById('dtBadge').style.display='inline';r(true)};ws.onerror=()=>r(false);ws.onclose=()=>{document.getElementById('dtBadge').style.display='none';ws=null};setTimeout(()=>{if(ws.readyState!==WebSocket.OPEN)r(false)},3000)})}catch(e){return false}}
+async function sDT(m){let c=await cDT();if(!c)return false;let d=addStream();csMsg=d;ws.send(JSON.stringify({type:'start_turn',content:m,session_id:'',capability:'chat',knowledge_bases:[],tools:['web_search','reason'],language:'zh'}));return true}
+function addStream(){let c=document.getElementById('messages'),d=document.createElement('div');d.className='msg assistant';d.innerHTML='<div class="av">DT</div><div class="bub"></div>';c.appendChild(d);c.scrollTop=c.scrollHeight;return d.querySelector('.bub')}
+document.querySelectorAll('.skill-tag').forEach(t=>{t.addEventListener('click',()=>swSkill(t))});
+function swSkill(e){document.querySelectorAll('.skill-tag').forEach(t=>t.classList.remove('active'));e.classList.add('active');skill=e.dataset.skill}
+document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+async function send(){let i=document.getElementById('chatInput'),m=i.value.trim();if(!m)return;i.value='';addMsg('user',m);let c=TK[skill]||{c:2000,l:300};try{let r=await fetch(LOCAL_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:m}],temperature:0.3,max_tokens:1024})});if(r.ok){let d=await r.json();addMsg('assistant',d.answer,c.l,'本地');addTokens(c.l);return}}catch(e){}if(skill==='math'){let s=await sDT(m);if(s){addTokens(c.c);return}}try{let r=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m,skill_type:skill,history:history.slice(-10)})});let d=await r.json();addMsg('assistant',d.answer,c.c,'云端');addTokens(c.c)}catch(e){addMsg('assistant','所有引擎不可用。',0,'—')}}
+function addMsg(r,t,tk,sr){let c=document.getElementById('messages'),d=document.createElement('div');d.className='msg '+r;let h='<div class="av">'+(r==='assistant'?'DT':'你')+'</div><div class="bub">'+t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/^## (.+)/gm,'<h2>$1</h2>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');if(tk>0&&r==='assistant')h+='<div class="cost">'+sr+' · '+tk.toLocaleString()+' Token · ¥'+(tk*TP).toFixed(4)+'</div>';h+='</div>';d.innerHTML=h;c.appendChild(d);c.scrollTop=c.scrollHeight}
+cDT();
 </script>
-
-</body>
-</html>
+</body></html>
