@@ -1,0 +1,55 @@
+name: Build TV APK
+
+on:
+  push:
+      paths:
+            - 'tv-apk/**'
+                  - '.github/workflows/build-tv-apk.yml'
+                    workflow_dispatch:
+
+                    permissions:
+                      contents: write
+
+                      jobs:
+                        build:
+                            runs-on: ubuntu-latest
+                                timeout-minutes: 15
+
+                                    steps:
+                                          - uses: actions/checkout@v4
+
+                                                - uses: actions/setup-java@v4
+                                                        with:
+                                                                  java-version: '17'
+                                                                            distribution: 'temurin'
+
+                                                                                  - name: Setup Android SDK
+                                                                                          uses: android-actions/setup-android@v3
+
+                                                                                                - name: Accept licenses
+                                                                                                        run: yes | sdkmanager --licenses || true
+                                                                                                        
+                                                                                                              - name: Build debug APK
+                                                                                                                      working-directory: tv-apk
+                                                                                                                              run: ./gradlew assembleDebug --no-daemon
+                                                                                                                              
+                                                                                                                                    - name: Copy APK to frontend
+                                                                                                                                            run: |
+                                                                                                                                                      mkdir -p frontend/tv-apk
+                                                                                                                                                                cp tv-apk/app/build/outputs/apk/debug/app-debug.apk frontend/tv-apk/deepedu-tv.apk
+                                                                                                                                                                          ls -la frontend/tv-apk/
+                                                                                                                                                                          
+                                                                                                                                                                                - name: Upload APK artifact
+                                                                                                                                                                                        uses: actions/upload-artifact@v4
+                                                                                                                                                                                                with:
+                                                                                                                                                                                                          name: deepedu-tv-apk
+                                                                                                                                                                                                                    path: frontend/tv-apk/deepedu-tv.apk
+                                                                                                                                                                                                                    
+                                                                                                                                                                                                                          - name: Commit APK to repo
+                                                                                                                                                                                                                                  run: |
+                                                                                                                                                                                                                                            git config user.name "GitHub Actions"
+                                                                                                                                                                                                                                                      git config user.email "actions@github.com"
+                                                                                                                                                                                                                                                                git add frontend/tv-apk/deepedu-tv.apk
+                                                                                                                                                                                                                                                                          git diff --staged --quiet || git commit -m "Build: TV APK auto-built [skip ci]"
+                                                                                                                                                                                                                                                                                    git push
+                                                                                                                                                                                                                                                                                    
