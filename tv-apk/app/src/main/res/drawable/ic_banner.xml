@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV Launcher Banner (320×180 dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- 背景 -->
+    <path
+        android:fillColor="#1A73E8"
+        android:pathData="M0,0h320v180H0z" />
+
+    <!-- 书本/教育图标 — 简化 "D" 造型 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M120,40 h80 c11,0 20,9 20,20 v60 c0,11 -9,20 -20,20 h-80
+            c-11,0 -20,-9 -20,-20 V60 c0,-11 9,-20 20,-20 z
+            M120,40 v100 M100,60 h10 M100,80 h10 M100,100 h10
+            M210,60 h10 M210,80 h10 M210,100 h10" />
+
+    <!-- 文字 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M35,150 l2,-16 h8 l1,16 h-2 l-0.6,-11 h-0.3 l-1.8,11 h-1.3 l-1.8,-11 h-0.3 l-0.6,11 h-1.7z
+            M49,150 l2.5,-12 h1.4 l3.5,12 h-2 l-0.7,-2.5 h-3 l-0.7,2.5 h-2z
+            M52,146 h2.3 l-0.8,-3 h-0.6z
+            M58,150 l1.8,-16 h1.8 l-0.3,4.6 h0.2 c1.2,0 2.3,0.5 3,1.4 c0.8,0.9 1,2.1 1,3.7 s-0.4,3 -1.2,4.1
+            c-0.7,1 -1.9,1.6 -3.3,1.6 h-0.2 l-1.8,0.6z
+            M60,148.3 h0.1 c1,0 1.8,-0.5 2.3,-1.3 c0.5,-0.8 0.7,-1.9 0.7,-3.4
+            s-0.3,-2.5 -0.7,-3.3 c-0.5,-0.8 -1.3,-1.2 -2.3,-1.2 h-0.2z" />
+</vector>
