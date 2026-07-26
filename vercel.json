@@ -4,6 +4,7 @@
   "rewrites": [
     { "source": "/api/edulab", "destination": "/api/edulab" },
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!api/).*)", "destination": "/frontend/$1" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/((?!api/).*)", "destination": "/$1.html" }
   ]
 }
