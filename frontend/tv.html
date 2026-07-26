@@ -78,11 +78,14 @@ main{flex:1;display:flex;flex-direction:column;padding:0 48px;overflow:hidden}
 .status{position:fixed;bottom:16px;left:48px;font-size:14px;color:var(--text2)}
 .fullscreen-overlay{position:fixed;top:12px;left:12px;z-index:9999;padding:8px 16px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;font-size:30px;cursor:pointer;display:none;backdrop-filter:blur(4px)}.fullscreen-overlay.show{display:block}#appPanel:fullscreen{width:100%}#appPanel:fullscreen .app-header{padding:20px 32px}#appPanel:fullscreen .app-header h3{font-size:28px}
 @media(max-width:800px){.token-panel{display:none}header,.compute-bar,.apps-bar,.skills,.input-area{padding-left:16px;padding-right:16px}header h1{font-size:20px}.messages{font-size:17px}}
+.qr-bar{display:flex;align-items:center;padding:12px 48px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0}
+.qr-bar.show{display:flex}
 </style></head>
 <body>
 <div class="main-col">
 <header><h1>deepedu.school TV</h1><div style="display:flex;gap:10px;align-items:center"><span class="badge on" id="dtBadge" style="display:none">DeepTutor</span><span class="badge" id="statusBadge">就绪</span></div></header>
 <div class="compute-bar"><span class="label">算力源</span><button class="comp-btn local active" data-comp="local" onclick="setCompute('local')">本地一体机</button><button class="comp-btn" data-comp="auto" onclick="setCompute('auto')">自动</button><button class="comp-btn cloud" data-comp="cloud" onclick="setCompute('cloud')">云端</button><div class="token-summary"><div class="token-item"><span class="tval low" id="tokUsed">0</span><span class="tlbl">本月已用</span></div><div class="token-item"><span class="tval" id="tokQuota">10万</span><span class="tlbl">月度配额</span></div></div></div>
+<div class="qr-bar" id="qrBar" style="display:none"><span style="font-size:18px;margin-right:12px">📱 手机遥控</span><img id="qrImg" src="" style="width:80px;height:80px;border-radius:8px;background:#fff;padding:4px"><span id="qrCode" style="font-size:18px;color:var(--amber);margin-left:12px;font-weight:700;letter-spacing:2px"></span></div>
 <div class="apps-bar"><span class="label">教育应用</span><div class="app-card" tabindex="0" data-app="deepecho" data-url="https://echo-loop-pwa.vercel.app" data-compute="cloud" onclick="openApp(this)"><span class="app-icon">🎧</span>Deepecho 英语听说<span class="comp-tag cloud">云端</span></div><div class="app-card" tabindex="0" data-app="deepedulab" data-url="" data-skill-idx="0" data-compute="local" onclick="openApp(this)"><span class="app-icon">🔮</span>Deepedulab 动态课件<span class="comp-tag local">本地</span></div><div class="app-card" tabindex="0" data-app="deepmarble" data-url="https://marble-taxonomy-explorer-cn.vercel.app" data-compute="none" onclick="openApp(this)"><span class="app-icon">🧠</span>DeepMarble<span class="comp-tag none">静态</span></div><div class="app-card" tabindex="0" data-app="deepcat" data-url="http://localhost:3000" data-compute="local" onclick="openApp(this)"><span class="app-icon">🎬</span>DeepCat 数学动画<span class="comp-tag local">本地</span></div></div>
 <main>
 <div class="skills" id="skillBar"><span class="skill-tag active" data-skill="math" tabindex="0">数学辅导</span><span class="skill-tag" data-skill="english" tabindex="0">英语听说</span><span class="skill-tag" data-skill="compose" tabindex="0">作文批改</span><span class="skill-tag" data-skill="quiz" tabindex="0">自适应测评</span><span class="skill-tag" data-skill="oral" tabindex="0">口算</span><span class="skill-tag" data-skill="dictation" tabindex="0">听写</span><span class="skill-tag" data-skill="chinese" tabindex="0">语文</span></div>
@@ -135,7 +138,53 @@ document.addEventListener('fullscreenchange',updateFullscreenUI);
 document.addEventListener('webkitfullscreenchange',updateFullscreenUI);
 // ESC 键退出全屏（浏览器原生也会触发，这里兜底同步 UI）
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.fullscreenElement){exitAppFullscreen()}});
-// ---------- 语音控制（Web Speech API）----------
+// ---------- 手机遥控器 ----------
+let remoteSession='';
+async function initRemote(){
+  try{
+    let r=await fetch(API+'/remote/create',{method:'POST'});
+    let d=await r.json();
+    remoteSession=d.session_id;
+    let remoteUrl='https://deepedu.school/remote?s='+remoteSession;
+    document.getElementById('qrImg').src='https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(remoteUrl);
+    document.getElementById('qrCode').textContent=remoteSession;
+    document.getElementById('qrBar').classList.add('show');
+    startPoll();
+  }catch(e){}
+}
+async function pollRemote(){
+  if(!remoteSession)return;
+  try{
+    let r=await fetch(API+'/remote/receive?session_id='+remoteSession,{method:'POST'});
+    let d=await r.json();
+    for(let cmd of(d.commands||[]))execCmd(cmd);
+  }catch(e){}
+}
+function startPoll(){pollRemote();setInterval(pollRemote,500)}
+function execCmd(cmd){
+  let ts=document.querySelectorAll('.skill-tag'),acs=document.querySelectorAll('.app-card');
+  let f=document.activeElement;
+  let inp=document.getElementById('chatInput');
+  if(cmd==='ArrowRight'||cmd==='right'){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));return}
+  if(cmd==='ArrowLeft'||cmd==='left'){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));return}
+  if(cmd==='ArrowUp'||cmd==='up'){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));return}
+  if(cmd==='ArrowDown'||cmd==='down'){document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));return}
+  if(cmd==='enter'){
+    if(document.activeElement===inp){send();return}
+    if(f&&f.classList.contains('skill-tag')){swSkill(f);return}
+    if(f&&f.classList.contains('app-card')){openApp(f);return}
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));return
+  }
+  if(cmd==='back'||cmd==='Escape'){
+    if(document.fullscreenElement){exitAppFullscreen();return}
+    if(curApp){closeApp();return}
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return
+  }
+  if(cmd==='home'){inp.focus()}
+  if(cmd.startsWith('type:')){inp.focus();inp.value+=cmd.slice(5);inp.dispatchEvent(new Event('input',{bubbles:true}));return}
+}
+initRemote();
+// 语音控制...
 let voiceRec=null,voiceActive=false;
 function initVoiceControl(){let SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;voiceRec=new SR();voiceRec.lang='zh-CN';voiceRec.continuous=true;voiceRec.interimResults=false;voiceRec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){let txt=(e.results[i][0].transcript||'').trim();if(/退出|返回|关闭/.test(txt)){exitAppFullscreen()}}};voiceRec.onend=()=>{if(voiceActive){try{voiceRec.start()}catch(e){}}};}
 function startVoiceControl(){if(!voiceRec)initVoiceControl();if(voiceRec&&!voiceActive){voiceActive=true;try{voiceRec.start()}catch(e){}}}

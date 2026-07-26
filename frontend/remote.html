@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>deepedu TV 遥控器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f172a;color:#f1f5f9;height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;user-select:none;overflow:hidden}
+h2{font-size:18px;color:#2563eb;margin-bottom:4px}
+.status{font-size:12px;color:#94a3b8;margin-bottom:8px}
+.status.ok{color:#10b981}
+
+.dpad{display:grid;grid-template-columns:80px 80px 80px;grid-template-rows:80px 80px 80px;gap:6px}
+.dpad button{border:none;border-radius:14px;font-size:28px;cursor:pointer;background:#1e293b;color:#94a3b8;transition:all .1s;display:flex;align-items:center;justify-content:center}
+.dpad button:active{background:#2563eb;color:#fff;transform:scale(.92)}
+.dpad .up{grid-column:2;grid-row:1}
+.dpad .left{grid-column:1;grid-row:2}
+.dpad .center{grid-column:2;grid-row:2;background:#2563eb;color:#fff;font-size:18px;font-weight:700}
+.dpad .center:active{background:#1d4ed8}
+.dpad .right{grid-column:3;grid-row:2}
+.dpad .down{grid-column:2;grid-row:3}
+
+.action-row{display:flex;gap:12px;margin-top:8px}
+.action-row button{width:70px;height:70px;border:none;border-radius:50%;font-size:16px;cursor:pointer;background:#1e293b;color:#94a3b8;transition:all .1s;display:flex;align-items:center;justify-content:center;font-weight:600}
+.action-row button:active{transform:scale(.9)}
+.action-row .btn-back:active{background:#ef4444;color:#fff}
+.action-row .btn-home:active{background:#f59e0b;color:#fff}
+
+.input-row{display:flex;gap:8px;margin-top:12px;width:100%;max-width:280px}
+.input-row input{flex:1;padding:10px 14px;border:1px solid #334155;border-radius:10px;font-size:15px;background:#1e293b;color:#f1f5f9;outline:none}
+.input-row input:focus{border-color:#2563eb}
+.input-row button{padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;font-weight:600}
+.input-row button:active{background:#1d4ed8}
+
+.msg{font-size:12px;color:#475569;margin-top:4px;min-height:16px}
+</style>
+</head>
+<body>
+
+<h2>deepedu TV 遥控器</h2>
+<div class="status" id="status">连接中...</div>
+
+<div class="dpad">
+  <button class="up" onclick="sendCmd('up')">▲</button>
+  <button class="left" onclick="sendCmd('left')">◀</button>
+  <button class="center" onclick="sendCmd('enter')">确定</button>
+  <button class="right" onclick="sendCmd('right')">▶</button>
+  <button class="down" onclick="sendCmd('down')">▼</button>
+</div>
+
+<div class="action-row">
+  <button class="btn-back" onclick="sendCmd('back')">返回</button>
+  <button class="btn-home" onclick="sendCmd('home')">首页</button>
+</div>
+
+<div class="input-row">
+  <input type="text" id="textInput" placeholder="输入文字..." autofocus>
+  <button onclick="sendText()">发送</button>
+</div>
+
+<div class="msg" id="msg"></div>
+
+<script>
+const API='/api';
+let sid=new URLSearchParams(location.search).get('s')||'';
+
+if(!sid){
+  document.getElementById('status').textContent='缺少配对码，请扫描 TV 屏幕上的二维码';
+}else{
+  document.getElementById('status').textContent='已连接 · '+sid;
+  document.getElementById('status').className='status ok';
+}
+
+async function sendCmd(cmd){
+  if(!sid)return;
+  let m=document.getElementById('msg');
+  try{
+    let r=await fetch(API+'/remote/send?session_id='+sid+'&cmd='+cmd,{method:'POST'});
+    let d=await r.json();
+    if(d.error){m.textContent='会话已过期，请重新扫码';return}
+    m.textContent='✓ '+cmd
+  }catch(e){m.textContent='发送失败'}
+}
+
+async function sendText(){
+  let inp=document.getElementById('textInput'),txt=inp.value.trim();
+  if(!txt||!sid)return;
+  inp.value='';
+  // 逐字发送到 TV 输入框
+  for(let c of txt)await sendCmd('type:'+c);
+  await sendCmd('enter');
+  document.getElementById('msg').textContent='✓ 已发送: '+txt
+}
+
+// 长按连续发送
+let holdTimer=null;
+document.querySelectorAll('.dpad button').forEach(b=>{
+  b.addEventListener('pointerdown',e=>{e.preventDefault();sendCmd(b.classList.contains('center')?'enter':b.classList.contains('up')?'up':b.classList.contains('down')?'down':b.classList.contains('left')?'left':'right');holdTimer=setInterval(()=>sendCmd(b.classList.contains('center')?'enter':b.classList.contains('up')?'up':b.classList.contains('down')?'down':b.classList.contains('left')?'left':'right'),200)});
+  b.addEventListener('pointerup',()=>clearInterval(holdTimer));
+  b.addEventListener('pointerleave',()=>clearInterval(holdTimer));
+});
+</script>
+</body>
+</html>

@@ -401,5 +401,53 @@ async def deeptutor_config():
     }
 
 
+# ── Remote Control ──
+import time
+import uuid
+import threading
+
+_remote_lock = threading.Lock()
+_remote_sessions: dict[str, dict] = {}
+
+REMOTE_TTL = 300  # 5 分钟过期
+
+
+@app.post("/api/remote/create")
+async def remote_create():
+    """TV 端创建遥控器会话，返回 session_id"""
+    sid = uuid.uuid4().hex[:8]
+    with _remote_lock:
+        _remote_sessions[sid] = {
+            "commands": [],
+            "created_at": time.time(),
+        }
+    return {"session_id": sid}
+
+
+@app.post("/api/remote/send")
+async def remote_send(session_id: str, cmd: str):
+    """手机端发送指令：left/right/up/down/enter/back"""
+    with _remote_lock:
+        s = _remote_sessions.get(session_id)
+        if not s:
+            return {"error": "session_not_found"}
+        s["commands"].append(cmd)
+        s["created_at"] = time.time()
+    return {"ok": True}
+
+
+@app.post("/api/remote/receive")
+async def remote_receive(session_id: str):
+    """TV 端拉取排队指令，返回后清空队列"""
+    with _remote_lock:
+        s = _remote_sessions.get(session_id)
+        if not s:
+            return {"error": "session_not_found", "commands": []}
+        cmds = s["commands"]
+        s["commands"] = []
+        s["created_at"] = time.time()
+    return {"commands": cmds}
+
+
 # ── Vercel handler ──
 handler = Mangum(app)
